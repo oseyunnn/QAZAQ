@@ -70,9 +70,11 @@
 @layer base {
     html { scroll-behavior: smooth; }
     body { 
-        @apply bg-paper text-ink font-sans antialiased selection:bg-sky-300 selection:text-sky-950;
+        @apply bg-[#f5f2eb] text-ink font-sans antialiased selection:bg-sky-300 selection:text-sky-950;
     }
     h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.015em; }
+    p { line-height: 1.7; }
+    a { transition: color 180ms ease, opacity 180ms ease, transform 180ms ease; }
     :focus-visible { outline: 2px solid var(--color-brand); outline-offset: 3px; }
     @media (prefers-reduced-motion: reduce) {
         html { scroll-behavior: auto; }
