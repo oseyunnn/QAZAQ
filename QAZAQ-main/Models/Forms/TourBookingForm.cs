@@ -15,6 +15,9 @@ public class TourBookingForm
     [StringLength(70, MinimumLength = 3, ErrorMessage = "Name must be between 3 and 70 characters.")]
     public string FullName { get; set; } = string.Empty;
 
+    [Required(ErrorMessage = "Please choose the style of expedition you want.")]
+    public string TripStyle { get; set; } = "Luxury Escape";
+
     [Required(ErrorMessage = "Email address is required for expedition confirmation.")]
     [EmailAddress(ErrorMessage = "Please provide a valid email address.")]
     public string Email { get; set; } = string.Empty;
@@ -57,6 +60,15 @@ public class TourBookingForm
         if (IncludeYurtExperience)
         {
             subtotal += 45m * count;
+        }
+
+        if (TripStyle.Equals("Private Family Escape", StringComparison.OrdinalIgnoreCase))
+        {
+            subtotal += 120m;
+        }
+        else if (TripStyle.Equals("Adventure Expedition", StringComparison.OrdinalIgnoreCase))
+        {
+            subtotal += 90m;
         }
 
         return Math.Round(subtotal, 2);

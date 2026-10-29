@@ -120,6 +120,24 @@
                         <ValidationMessage For="() => form.SpotId" class="validation-message" />
                     </div>
 
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="tripStyle" class="field-label">Trip Style *</label>
+                            <InputSelect id="tripStyle" class="field" @bind-Value="form.TripStyle">
+                                <option value="Luxury Escape">Luxury Escape</option>
+                                <option value="Adventure Expedition">Adventure Expedition</option>
+                                <option value="Private Family Escape">Private Family Escape</option>
+                                <option value="Cultural Heritage Journey">Cultural Heritage Journey</option>
+                            </InputSelect>
+                            <ValidationMessage For="() => form.TripStyle" class="validation-message" />
+                        </div>
+                        <div>
+                            <label for="email" class="field-label">Email Address *</label>
+                            <InputText id="email" type="email" class="field" placeholder="askar@example.kz" @bind-Value="form.Email" />
+                            <ValidationMessage For="() => form.Email" class="validation-message" />
+                        </div>
+                    </div>
+
                     <!-- Personal Information -->
                     <div class="grid gap-4 sm:grid-cols-2">
                         <div>
@@ -128,9 +146,10 @@
                             <ValidationMessage For="() => form.FullName" class="validation-message" />
                         </div>
                         <div>
-                            <label for="email" class="field-label">Email Address *</label>
-                            <InputText id="email" type="email" class="field" placeholder="askar@example.kz" @bind-Value="form.Email" />
-                            <ValidationMessage For="() => form.Email" class="validation-message" />
+                            <label for="nature" class="field-label">Preferred Travel Mood</label>
+                            <div class="flex h-11 items-center rounded-xl border border-sky-100 bg-sky-50/40 px-4 text-sm text-sky-900">
+                                @form.TripStyle
+                            </div>
                         </div>
                     </div>
 
@@ -168,6 +187,9 @@
                     <!-- Cultural Add-ons -->
                     <div class="rounded-2xl border border-sky-100 bg-sky-50/40 p-4 space-y-3">
                         <span class="block text-[11px] font-bold uppercase tracking-wider text-sky-800">Bespoke Inclusions</span>
+                        <div class="rounded-xl border border-sky-200 bg-white/80 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.18em] text-sky-800">
+                            @form.TripStyle itinerary planning
+                        </div>
                         
                         <label class="flex items-start gap-3 cursor-pointer">
                             <input type="checkbox" @bind="form.IncludeGuide" class="mt-1 h-4 w-4 rounded-md border-sky-300 text-sky-600 focus:ring-sky-500" />
