@@ -35,6 +35,8 @@ public abstract class DestinationBase
             Region.Turkistan => "Turkistan Silk Road",
             Region.AstanaCapital => "Astana Capital",
             Region.EastKazakhstan => "East Kazakhstan / Altai",
+            Region.BalkhashRegion => "Balkhash Region",
+            Region.WesternKazakhstan => "Western Kazakhstan",
             _ => Region.ToString()
         };
     }

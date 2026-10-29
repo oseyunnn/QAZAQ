@@ -6,7 +6,9 @@ public enum Region
     Mangystau,
     Turkistan,
     AstanaCapital,
-    EastKazakhstan
+    EastKazakhstan,
+    BalkhashRegion,
+    WesternKazakhstan
 }
 
 public enum SpotCategory

@@ -176,6 +176,27 @@ public static class SampleData
             AltitudeMeters = 1750,
             IsUnescoHeritage = true,
             IsPopular = false
+        },
+        new TouristSpot
+        {
+            Id = 9,
+            Name = "Balkhash Sunset Coast & Steppe Shoreline",
+            KazakhName = "Балқаш жағалауы",
+            Region = Region.BalkhashRegion,
+            Category = SpotCategory.NaturalWonder,
+            ShortDescription = "A vast inland sea where desert winds, sunrise reflections, and fishing villages create a striking contrast to the open steppe.",
+            FullDescription = "Lake Balkhash sits in a dramatic east-west basin between the Kazakh steppe and the Tien Shan, producing one of the world's most vivid inland water landscapes. Travelers enjoy shoreline picnics, birdwatching, and sunset reflections over brackish waters whose color changes with the season and light.",
+            ImageUrl = "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80",
+            BasePriceUsd = 68m,
+            Rating = 4.6,
+            ReviewCount = 182,
+            BestSeason = "May to September",
+            Highlights = new() { "Golden-hour lakeside sunsets", "Steppe bird migration routes", "Fisherman villages and local markets", "Campfire evenings under desert skies" },
+            Difficulty = DifficultyLevel.Easy,
+            DurationDays = 2,
+            AltitudeMeters = 340,
+            IsUnescoHeritage = false,
+            IsPopular = true
         }
     };
 
