@@ -1,0 +1,26 @@
+# Build outputs
+bin/
+obj/
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+
+# Front-end dependencies
+node_modules/
+
+# Visual Studio / tooling
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.db
+*.sqlite
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+*.log
+
