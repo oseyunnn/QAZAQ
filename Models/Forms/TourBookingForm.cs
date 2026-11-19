@@ -2,14 +2,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace QAZAQ.Models;
 
-/// <summary>
-/// Validated form model for booking a Kazakhstan tourist spot expedition.
-/// </summary>
 public class TourBookingForm
 {
     [Required(ErrorMessage = "Please select a destination spot.")]
-    [Range(1, int.MaxValue, ErrorMessage = "Please select a valid destination.")]
-    public int SpotId { get; set; }
+    [Range(1, long.MaxValue, ErrorMessage = "Please select a valid destination.")]
+    public long SpotId { get; set; }
 
     [Required(ErrorMessage = "Your full name is required.")]
     [StringLength(70, MinimumLength = 3, ErrorMessage = "Name must be between 3 and 70 characters.")]
@@ -39,9 +36,6 @@ public class TourBookingForm
     [StringLength(400, ErrorMessage = "Special requests must not exceed 400 characters.")]
     public string? SpecialRequests { get; set; }
 
-    /// <summary>
-    /// Computes the dynamic pricing estimate based on selected spot attributes.
-    /// </summary>
     public decimal ComputeEstimate(decimal baseSpotPrice, int durationDays)
     {
         int count = Math.Max(1, Travelers);
