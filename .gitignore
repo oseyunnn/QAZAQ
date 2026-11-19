@@ -24,3 +24,9 @@ Thumbs.db
 .idea/
 *.log
 
+# Environment variables & local secrets
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+appsettings.Local.json
