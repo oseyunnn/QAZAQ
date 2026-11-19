@@ -1,0 +1,26 @@
+### Supabase REST Data API Test Suite (Milestone Step 3)
+### Course: Application Development (CIT-U Computer Studies Department)
+### Slide 46 Reference: test.http
+
+@url = https://YOUR-REF.supabase.co
+@key = sb_publishable_your_key_here
+
+### 1. Test Fetch All Active Tourist Spots (GET)
+GET {{url}}/rest/v1/tourist_spots?deleted_at=is.null&select=*
+apikey: {{key}}
+Authorization: Bearer {{key}}
+
+### 2. Test Habit 2: Fetch and Filter in Database (Price <= 100 USD)
+GET {{url}}/rest/v1/tourist_spots?deleted_at=is.null&base_price_usd=lte.100&select=id,name,base_price_usd,region
+apikey: {{key}}
+Authorization: Bearer {{key}}
+
+### 3. Test Read Reviews (GET)
+GET {{url}}/rest/v1/tourist_reviews?deleted_at=is.null&select=*
+apikey: {{key}}
+Authorization: Bearer {{key}}
+
+### 4. Test Read Bookings (GET)
+GET {{url}}/rest/v1/bookings?deleted_at=is.null&select=*
+apikey: {{key}}
+Authorization: Bearer {{key}}

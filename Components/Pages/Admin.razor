@@ -1,0 +1,698 @@
+@page "/admin"
+@rendermode InteractiveServer
+@inject Supabase.Client Db
+@inject ITourismDataService TourismService
+@using static Supabase.Postgrest.Constants
+
+<PageTitle>Super Admin Console - QAZAQ Central Command</PageTitle>
+
+<!-- Admin Header Bar -->
+<section class="border-b border-sky-100 bg-[#081c34] text-white py-10">
+    <div class="mx-auto max-w-7xl px-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-400/20 px-3.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-amber-300 border border-amber-400/30">
+                        🔒 Restricted Super Admin Console
+                    </span>
+                    @if (isDbLive)
+                    {
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/40">
+                            <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Live Supabase PostgreSQL Connected
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-500/20 px-3 py-0.5 text-[10px] font-bold text-rose-300 border border-rose-500/40">
+                            Offline Mode
+                        </span>
+                    }
+                </div>
+                <h1 class="mt-3 font-display text-3xl sm:text-4xl font-normal text-[#f7f1e8]">
+                    QAZAQ Tourism Operations & Database Manager
+                </h1>
+                <p class="mt-2 text-xs text-stone-300 max-w-2xl font-light">
+                    Direct CRUD & Soft-Delete interface connected to cloud PostgreSQL on <code class="font-mono text-amber-300 bg-white/10 px-1.5 py-0.5 rounded">bgrsqjcsjdukhiskycvj.supabase.co</code>.
+                </p>
+            </div>
+
+            <!-- Admin Actions -->
+            <div class="flex flex-wrap items-center gap-3">
+                <button class="btn-gold flex items-center gap-2 text-xs py-2.5 px-5 shadow-lg"
+                        @onclick="() => showCreateModal = true">
+                    <svg viewBox="0 0 24 24" class="h-4 w-4 stroke-current fill-none" stroke-width="2.5" stroke-linecap="round">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    <span>+ Add New Destination</span>
+                </button>
+                <a href="/spots" class="btn-outline text-xs py-2 px-4">
+                    View Public Site →
+                </a>
+            </div>
+        </div>
+
+        <!-- Metric KPI Cards -->
+        <div class="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-4 border-t border-white/10 pt-6">
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+                <span class="block text-amber-300 font-display text-2xl font-bold">@allSpots.Count(s => s.DeletedAt == null)</span>
+                <span class="text-xs text-stone-300 font-medium">Active Destinations</span>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+                <span class="block text-rose-300 font-display text-2xl font-bold">@allSpots.Count(s => s.DeletedAt != null)</span>
+                <span class="text-xs text-stone-300 font-medium">Soft-Deleted / Archived</span>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+                <span class="block text-sky-300 font-display text-2xl font-bold">@bookings.Count</span>
+                <span class="text-xs text-stone-300 font-medium">Cloud Reservations</span>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-md">
+                <span class="block text-[#f7f1e8] font-display text-2xl font-bold">@reviews.Count</span>
+                <span class="text-xs text-stone-300 font-medium">Verified Reviews</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Main Admin Section -->
+<section class="mx-auto max-w-7xl px-6 py-10">
+    @if (!string.IsNullOrEmpty(statusNotification))
+    {
+        <div class="mb-6 flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3.5 text-xs text-emerald-950 shadow-xs animate-fadeIn">
+            <div class="flex items-center gap-2">
+                <span class="font-bold text-emerald-600">✓</span>
+                <span>@statusNotification</span>
+            </div>
+            <button class="font-bold text-emerald-800 hover:text-emerald-950" @onclick="() => statusNotification = string.Empty">✕</button>
+        </div>
+    }
+
+    <!-- Tabs Navigation -->
+    <div class="flex items-center gap-2 border-b border-sky-100 pb-3">
+        <button class="@(activeTab == "destinations" ? "rounded-xl bg-sky-950 px-5 py-2.5 text-xs font-bold text-white shadow-sm" : "rounded-xl px-5 py-2.5 text-xs font-bold text-stone-600 hover:bg-sky-50")"
+                @onclick="@(() => activeTab = "destinations")">
+            Destinations Management (@allSpots.Count)
+        </button>
+        <button class="@(activeTab == "bookings" ? "rounded-xl bg-sky-950 px-5 py-2.5 text-xs font-bold text-white shadow-sm" : "rounded-xl px-5 py-2.5 text-xs font-bold text-stone-600 hover:bg-sky-50")"
+                @onclick="@(() => activeTab = "bookings")">
+            Expedition Bookings (@bookings.Count)
+        </button>
+        <button class="@(activeTab == "reviews" ? "rounded-xl bg-sky-950 px-5 py-2.5 text-xs font-bold text-white shadow-sm" : "rounded-xl px-5 py-2.5 text-xs font-bold text-stone-600 hover:bg-sky-50")"
+                @onclick="@(() => activeTab = "reviews")">
+            Guest Reviews (@reviews.Count)
+        </button>
+    </div>
+
+    <!-- TAB 1: DESTINATIONS TABLE -->
+    @if (activeTab == "destinations")
+    {
+        <div class="mt-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <div class="flex items-center gap-3">
+                    <input type="text" class="field py-1.5 px-3 text-xs w-64" placeholder="Filter destinations..." 
+                           @bind="tableSearch" @bind:event="oninput" />
+                    <label class="flex items-center gap-2 text-xs font-semibold text-stone-700 cursor-pointer">
+                        <input type="checkbox" @bind="showArchivedInTable" class="h-4 w-4 rounded-md border-sky-300 text-sky-600" />
+                        <span>Include Soft-Deleted</span>
+                    </label>
+                </div>
+                <div class="text-xs text-stone-500">
+                    Showing <strong>@FilteredTableSpots.Count()</strong> of @allSpots.Count records
+                </div>
+            </div>
+
+            <div class="overflow-x-auto rounded-3xl border border-sky-100 bg-white shadow-sm">
+                <table class="w-full text-left text-xs text-stone-700">
+                    <thead class="border-b border-sky-100 bg-sky-50/60 text-[10px] uppercase tracking-wider text-sky-900 font-bold">
+                        <tr>
+                            <th class="px-5 py-3.5">ID</th>
+                            <th class="px-5 py-3.5">Destination</th>
+                            <th class="px-5 py-3.5">Region</th>
+                            <th class="px-5 py-3.5">Category</th>
+                            <th class="px-5 py-3.5">Base Price</th>
+                            <th class="px-5 py-3.5">Duration</th>
+                            <th class="px-5 py-3.5">Status</th>
+                            <th class="px-5 py-3.5 text-right">Actions (PATCH / Delete)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-sky-50">
+                        @foreach (var spot in FilteredTableSpots)
+                        {
+                            <tr class="hover:bg-sky-50/40 transition-colors @(spot.DeletedAt != null ? "bg-amber-50/30" : "")">
+                                <td class="px-5 py-4 font-mono font-bold text-sky-950">#@spot.Id</td>
+                                <td class="px-5 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <img src="@spot.ImageUrl" alt="@spot.Name" class="h-10 w-10 rounded-xl object-cover shrink-0 border border-sky-100" />
+                                        <div>
+                                            <span class="block font-bold text-sky-950 font-display text-sm">@spot.Name</span>
+                                            <span class="block text-[11px] font-serif italic text-amber-700">@spot.KazakhName</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-5 py-4">@spot.GetFormattedRegion()</td>
+                                <td class="px-5 py-4">
+                                    <span class="badge text-[9px]">@spot.Category</span>
+                                </td>
+                                <td class="px-5 py-4 font-bold text-sky-950">$@spot.BasePriceUsd</td>
+                                <td class="px-5 py-4">@spot.DurationDays @(spot.DurationDays == 1 ? "day" : "days")</td>
+                                <td class="px-5 py-4">
+                                    @if (spot.DeletedAt == null)
+                                    {
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                                            Active
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-300" title="@spot.DeletedAt?.ToString("u")">
+                                            Soft-Deleted
+                                        </span>
+                                    }
+                                </td>
+                                <td class="px-5 py-4 text-right">
+                                    <div class="flex items-center justify-end gap-1.5">
+                                        @if (spot.DeletedAt == null)
+                                        {
+                                            <!-- Step 8: Update Price (PATCH - Slide 51) -->
+                                            <button class="rounded-lg border border-sky-200 bg-sky-50 px-2 py-1 text-[10px] font-bold text-sky-800 hover:bg-sky-100 transition-colors"
+                                                    @onclick="() => RaiseSpotPrice(spot)"
+                                                    title="Increment base price by $10 (PATCH /rest/v1/tourist_spots)">
+                                                +$10
+                                            </button>
+                                            <button class="rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1 text-[10px] font-bold text-stone-700 hover:bg-stone-100 transition-colors"
+                                                    @onclick="() => StartEdit(spot)">
+                                                Edit
+                                            </button>
+                                            <!-- Step 8: Soft Delete (Slide 51) -->
+                                            <button class="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-100 transition-colors"
+                                                    @onclick="() => SoftDeleteSpot(spot)"
+                                                    title="Soft delete (stamps deleted_at timestamp)">
+                                                Delete
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <!-- Restore Soft-Deleted Row -->
+                                            <button class="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100 transition-colors"
+                                                    @onclick="() => RestoreSpot(spot)">
+                                                Restore
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- TAB 2: BOOKINGS TABLE -->
+    @if (activeTab == "bookings")
+    {
+        <div class="mt-6">
+            <div class="overflow-x-auto rounded-3xl border border-sky-100 bg-white shadow-sm">
+                <table class="w-full text-left text-xs text-stone-700">
+                    <thead class="border-b border-sky-100 bg-sky-50/60 text-[10px] uppercase tracking-wider text-sky-900 font-bold">
+                        <tr>
+                            <th class="px-5 py-3.5">Voucher</th>
+                            <th class="px-5 py-3.5">Lead Guest</th>
+                            <th class="px-5 py-3.5">Contact</th>
+                            <th class="px-5 py-3.5">Expedition Date</th>
+                            <th class="px-5 py-3.5">Party</th>
+                            <th class="px-5 py-3.5">Trip Style</th>
+                            <th class="px-5 py-3.5">Total Price</th>
+                            <th class="px-5 py-3.5">Status</th>
+                            <th class="px-5 py-3.5 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-sky-50">
+                        @if (!bookings.Any())
+                        {
+                            <tr>
+                                <td colspan="9" class="px-5 py-12 text-center text-xs text-stone-400">
+                                    No reservation rows found in Supabase table <code class="font-mono">public.bookings</code>.
+                                </td>
+                            </tr>
+                        }
+                        @foreach (var b in bookings)
+                        {
+                            <tr class="hover:bg-sky-50/40 transition-colors @(b.DeletedAt != null ? "bg-amber-50/30" : "")">
+                                <td class="px-5 py-4 font-mono font-bold text-sky-900">@b.VoucherCode</td>
+                                <td class="px-5 py-4 font-bold text-sky-950">@b.FullName</td>
+                                <td class="px-5 py-4">@b.Email<br /><span class="text-stone-400">@b.Phone</span></td>
+                                <td class="px-5 py-4">@b.TravelDate.ToString("MMM dd, yyyy")</td>
+                                <td class="px-5 py-4">@b.Travelers travelers</td>
+                                <td class="px-5 py-4">@b.TripStyle</td>
+                                <td class="px-5 py-4 font-bold text-sky-950">$@b.TotalPriceUsd</td>
+                                <td class="px-5 py-4">
+                                    <span class="badge text-[9px] @(b.Status == "Cancelled" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-emerald-50 text-emerald-800 border-emerald-200")">
+                                        @b.Status
+                                    </span>
+                                </td>
+                                <td class="px-5 py-4 text-right">
+                                    @if (b.DeletedAt == null)
+                                    {
+                                        <button class="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-100 transition-colors"
+                                                @onclick="() => CancelBooking(b.Id)">
+                                            Cancel
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-[10px] text-stone-400 italic">Cancelled</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- TAB 3: REVIEWS TABLE -->
+    @if (activeTab == "reviews")
+    {
+        <div class="mt-6">
+            <div class="overflow-x-auto rounded-3xl border border-sky-100 bg-white shadow-sm">
+                <table class="w-full text-left text-xs text-stone-700">
+                    <thead class="border-b border-sky-100 bg-sky-50/60 text-[10px] uppercase tracking-wider text-sky-900 font-bold">
+                        <tr>
+                            <th class="px-5 py-3.5">ID</th>
+                            <th class="px-5 py-3.5">Author</th>
+                            <th class="px-5 py-3.5">Destination</th>
+                            <th class="px-5 py-3.5">Rating</th>
+                            <th class="px-5 py-3.5">Review Title</th>
+                            <th class="px-5 py-3.5">Helpful Votes</th>
+                            <th class="px-5 py-3.5 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-sky-50">
+                        @foreach (var r in reviews)
+                        {
+                            <tr class="hover:bg-sky-50/40 transition-colors">
+                                <td class="px-5 py-4 font-mono font-bold text-sky-950">#@r.Id</td>
+                                <td class="px-5 py-4 font-bold text-sky-950">@r.AuthorName <span class="text-stone-400 font-normal">(@r.Country)</span></td>
+                                <td class="px-5 py-4">@r.DestinationName</td>
+                                <td class="px-5 py-4 font-bold text-amber-500">★ @r.Rating.0</td>
+                                <td class="px-5 py-4 text-stone-800">"@r.Title"</td>
+                                <td class="px-5 py-4 font-semibold text-sky-800">@r.HelpfulVotes</td>
+                                <td class="px-5 py-4 text-right">
+                                    <button class="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-100 transition-colors"
+                                            @onclick="() => SoftDeleteReview(r.Id)">
+                                        Remove
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</section>
+
+<!-- ========================================================================= -->
+<!-- STEP 7 MODAL: CREATE A NEW DESTINATION (Slide 50)                         -->
+<!-- ========================================================================= -->
+@if (showCreateModal)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md"
+         @onclick="() => showCreateModal = false" role="dialog" aria-modal="true">
+        <div class="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-sky-100 bg-white p-6 sm:p-8 shadow-2xl"
+             @onclick:stopPropagation="true">
+            
+            <button class="absolute top-5 right-5 flex h-9 w-9 items-center justify-center rounded-full border border-sky-200 text-stone-400 hover:text-sky-950 transition-colors"
+                    @onclick="() => showCreateModal = false" aria-label="Close modal">✕</button>
+
+            <div class="border-b border-sky-100 pb-4">
+                <span class="badge-gold">✦ Admin Create · Slide 50 ✦</span>
+                <h3 class="mt-2 text-2xl font-display font-bold text-sky-950">Add Kazakhstan Destination</h3>
+                <p class="text-xs text-stone-500">Sends <code class="rounded bg-sky-50 px-1 py-0.5 text-sky-900 font-mono">POST /rest/v1/tourist_spots</code>.</p>
+            </div>
+
+            <div class="mt-5 space-y-4">
+                <div>
+                    <label class="field-label">Destination Name (English) *</label>
+                    <input type="text" class="field" placeholder="e.g. Kolsai Lake Alpine Mirror" @bind="newSpotName" />
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="field-label">Kazakh Name (Cyrillic) *</label>
+                        <input type="text" class="field font-serif" placeholder="e.g. Көлсай көлдері" @bind="newSpotKazakhName" />
+                    </div>
+                    <div>
+                        <label class="field-label">Base Price (USD) *</label>
+                        <input type="number" step="5" min="0" class="field" @bind="newSpotPrice" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="field-label">Region</label>
+                        <select class="field" @bind="newSpotRegion">
+                            @foreach (var r in Enum.GetValues<Region>())
+                            {
+                                <option value="@r">@r</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="field-label">Category</label>
+                        <select class="field" @bind="newSpotCategory">
+                            @foreach (var c in Enum.GetValues<SpotCategory>())
+                            {
+                                <option value="@c">@c</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="field-label">Duration (Days)</label>
+                        <input type="number" min="1" max="14" class="field" @bind="newSpotDuration" />
+                    </div>
+                    <div>
+                        <label class="field-label">Altitude (Meters)</label>
+                        <input type="number" class="field" @bind="newSpotAltitude" />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="field-label">Image URL</label>
+                    <input type="url" class="field text-xs" @bind="newSpotImageUrl" />
+                </div>
+
+                <div>
+                    <label class="field-label">Short Description *</label>
+                    <textarea rows="3" class="field text-xs" @bind="newSpotDescription"></textarea>
+                </div>
+
+                <div class="flex items-center gap-4 pt-2">
+                    <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-stone-700">
+                        <input type="checkbox" @bind="newSpotUnesco" class="h-4 w-4 rounded-md border-sky-300 text-sky-600" />
+                        <span>UNESCO Heritage Site</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-stone-700">
+                        <input type="checkbox" @bind="newSpotPopular" class="h-4 w-4 rounded-md border-sky-300 text-sky-600" />
+                        <span>Feature as Popular</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Double-Click Guard: disabled="@isSaving" (Slide 8, 50) -->
+            <div class="mt-6 flex items-center justify-end gap-3 border-t border-sky-100 pt-4">
+                <button class="btn-outline-dark text-xs py-2 px-4" @onclick="() => showCreateModal = false">
+                    Cancel
+                </button>
+                <button class="btn-gold text-xs py-2 px-6 shadow-sm disabled:opacity-50"
+                        @onclick="SaveNewDestination"
+                        disabled="@isSaving">
+                    @(isSaving ? "Saving to Supabase..." : "Save Destination")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ========================================================================= -->
+<!-- STEP 8 MODAL: EDIT DESTINATION (Slide 51)                                 -->
+<!-- ========================================================================= -->
+@if (editingSpot != null)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md"
+         @onclick="() => editingSpot = null" role="dialog" aria-modal="true">
+        <div class="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-sky-100 bg-white p-6 sm:p-8 shadow-2xl"
+             @onclick:stopPropagation="true">
+            
+            <button class="absolute top-5 right-5 flex h-9 w-9 items-center justify-center rounded-full border border-sky-200 text-stone-400 hover:text-sky-950 transition-colors"
+                    @onclick="() => editingSpot = null" aria-label="Close modal">✕</button>
+
+            <div class="border-b border-sky-100 pb-4">
+                <span class="badge-azure">✦ Admin Edit · Slide 51 ✦</span>
+                <h3 class="mt-2 text-2xl font-display font-bold text-sky-950">Edit: @editingSpot.Name</h3>
+                <p class="text-xs text-stone-500">Sends <code class="rounded bg-sky-50 px-1 py-0.5 text-sky-900 font-mono">PATCH /rest/v1/tourist_spots?id=eq.@editingSpot.Id</code>.</p>
+            </div>
+
+            <div class="mt-5 space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="field-label">Base Price (USD) *</label>
+                        <input type="number" step="5" min="0" class="field" @bind="editingPrice" />
+                    </div>
+                    <div>
+                        <label class="field-label">Duration (Days)</label>
+                        <input type="number" min="1" max="14" class="field" @bind="editingDuration" />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="field-label">Short Description</label>
+                    <textarea rows="3" class="field text-xs" @bind="editingDesc"></textarea>
+                </div>
+            </div>
+
+            <div class="mt-6 flex items-center justify-end gap-3 border-t border-sky-100 pt-4">
+                <button class="btn-outline-dark text-xs py-2 px-4" @onclick="() => editingSpot = null">
+                    Cancel
+                </button>
+                <button class="btn-gold text-xs py-2 px-6 shadow-sm disabled:opacity-50"
+                        @onclick="SaveEdit"
+                        disabled="@isSaving">
+                    @(isSaving ? "Updating in Supabase..." : "Update Destination")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string activeTab = "destinations";
+    private string tableSearch = "";
+    private bool showArchivedInTable = true;
+    private bool isDbLive;
+    private string statusNotification = "";
+    private bool isSaving;
+
+    private List<TouristSpot> allSpots = new();
+    private List<TourBooking> bookings = new();
+    private List<TouristReview> reviews = new();
+
+    // Create Form State
+    private bool showCreateModal;
+    private string newSpotName = "";
+    private string newSpotKazakhName = "";
+    private decimal newSpotPrice = 85m;
+    private Region newSpotRegion = Region.AlmatyRegion;
+    private SpotCategory newSpotCategory = SpotCategory.NaturalWonder;
+    private int newSpotDuration = 2;
+    private int newSpotAltitude = 1200;
+    private string newSpotImageUrl = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80";
+    private string newSpotDescription = "Magnificent destination in Kazakhstan.";
+    private bool newSpotUnesco;
+    private bool newSpotPopular = true;
+
+    // Edit State
+    private TouristSpot? editingSpot;
+    private decimal editingPrice;
+    private int editingDuration;
+    private string editingDesc = "";
+
+    protected override async Task OnInitializedAsync()
+        => await LoadData();
+
+    private async Task LoadData()
+    {
+        try
+        {
+            // Direct Supabase query (Slide 49)
+            var res = await Db.From<TouristSpot>()
+                .Order(p => p.Id, Ordering.Ascending)
+                .Range(0, 49)
+                .Get();
+
+            if (res.Models != null && res.Models.Count > 0)
+            {
+                allSpots = res.Models;
+                isDbLive = true;
+            }
+        }
+        catch
+        {
+            allSpots = await TourismService.GetSpotsAsync(includeSoftDeleted: true);
+            isDbLive = false;
+        }
+
+        bookings = await TourismService.GetBookingsAsync();
+        reviews = await TourismService.GetReviewsAsync();
+    }
+
+    private IEnumerable<TouristSpot> FilteredTableSpots => allSpots
+        .Where(s => showArchivedInTable || s.DeletedAt == null)
+        .Where(s => string.IsNullOrWhiteSpace(tableSearch) ||
+                    s.Name.Contains(tableSearch, StringComparison.OrdinalIgnoreCase) ||
+                    s.KazakhName.Contains(tableSearch, StringComparison.OrdinalIgnoreCase) ||
+                    s.RegionString.Contains(tableSearch, StringComparison.OrdinalIgnoreCase));
+
+    private async Task RaiseSpotPrice(TouristSpot spot)
+    {
+        var newPrice = spot.BasePriceUsd + 10;
+        try
+        {
+            await Db.From<TouristSpot>()
+                .Where(x => x.Id == spot.Id)
+                .Set(x => x.BasePriceUsd, newPrice)
+                .Update();
+            statusNotification = $"Updated '{spot.Name}' price to ${newPrice} via PATCH.";
+        }
+        catch
+        {
+            await TourismService.UpdateSpotPriceAsync(spot.Id, newPrice);
+            statusNotification = $"Updated '{spot.Name}' price to ${newPrice}.";
+        }
+        await LoadData();
+    }
+
+    private void StartEdit(TouristSpot spot)
+    {
+        editingSpot = spot;
+        editingPrice = spot.BasePriceUsd;
+        editingDuration = spot.DurationDays;
+        editingDesc = spot.ShortDescription;
+    }
+
+    private async Task SaveEdit()
+    {
+        if (editingSpot == null) return;
+        isSaving = true;
+        try
+        {
+            try
+            {
+                await Db.From<TouristSpot>()
+                    .Where(x => x.Id == editingSpot.Id)
+                    .Set(x => x.BasePriceUsd, editingPrice)
+                    .Set(x => x.DurationDays, editingDuration)
+                    .Set(x => x.ShortDescription, editingDesc)
+                    .Update();
+            }
+            catch
+            {
+                await TourismService.UpdateSpotPriceAsync(editingSpot.Id, editingPrice);
+            }
+
+            statusNotification = $"Successfully updated '{editingSpot.Name}' in Supabase.";
+            editingSpot = null;
+            await LoadData();
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task SoftDeleteSpot(TouristSpot spot)
+    {
+        try
+        {
+            await Db.From<TouristSpot>()
+                .Where(x => x.Id == spot.Id)
+                .Set(x => x.DeletedAt, DateTime.UtcNow)
+                .Update();
+            statusNotification = $"Soft-deleted '{spot.Name}'. Stamped with deleted_at in Supabase.";
+        }
+        catch
+        {
+            await TourismService.SoftDeleteSpotAsync(spot.Id);
+            statusNotification = $"Soft-deleted '{spot.Name}'.";
+        }
+        await LoadData();
+    }
+
+    private async Task RestoreSpot(TouristSpot spot)
+    {
+        try
+        {
+            await Db.From<TouristSpot>()
+                .Where(x => x.Id == spot.Id)
+                .Set(x => x.DeletedAt, null)
+                .Update();
+            statusNotification = $"Restored '{spot.Name}'. deleted_at set to null.";
+        }
+        catch
+        {
+            await TourismService.RestoreSpotAsync(spot.Id);
+            statusNotification = $"Restored '{spot.Name}'.";
+        }
+        await LoadData();
+    }
+
+    private async Task SaveNewDestination()
+    {
+        if (string.IsNullOrWhiteSpace(newSpotName)) return;
+
+        isSaving = true;
+        try
+        {
+            var spot = new TouristSpot
+            {
+                Name = newSpotName.Trim(),
+                KazakhName = string.IsNullOrWhiteSpace(newSpotKazakhName) ? newSpotName.Trim() : newSpotKazakhName.Trim(),
+                RegionString = newSpotRegion.ToString(),
+                CategoryString = newSpotCategory.ToString(),
+                BasePriceUsd = Math.Max(0, newSpotPrice),
+                DurationDays = Math.Max(1, newSpotDuration),
+                AltitudeMeters = newSpotAltitude,
+                ImageUrl = string.IsNullOrWhiteSpace(newSpotImageUrl) 
+                    ? "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80" 
+                    : newSpotImageUrl.Trim(),
+                ShortDescription = newSpotDescription.Trim(),
+                FullDescription = newSpotDescription.Trim(),
+                IsUnescoHeritage = newSpotUnesco,
+                IsPopular = newSpotPopular,
+                Rating = 5.0,
+                ReviewCount = 1,
+                BestSeason = "May to October",
+                Highlights = new() { "Guided Steppe Experience", "Scenic Panoramic Views" }
+            };
+
+            try
+            {
+                await Db.From<TouristSpot>().Insert(spot);
+            }
+            catch
+            {
+                await TourismService.AddSpotAsync(spot);
+            }
+
+            statusNotification = $"Added new destination '{spot.Name}' to Supabase!";
+            showCreateModal = false;
+            newSpotName = "";
+            newSpotKazakhName = "";
+            await LoadData();
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task CancelBooking(long bookingId)
+    {
+        await TourismService.CancelBookingAsync(bookingId);
+        statusNotification = $"Cancelled reservation #{bookingId} in Supabase.";
+        await LoadData();
+    }
+
+    private async Task SoftDeleteReview(long reviewId)
+    {
+        await TourismService.SoftDeleteReviewAsync(reviewId);
+        statusNotification = $"Soft-deleted review #{reviewId}.";
+        await LoadData();
+    }
+}

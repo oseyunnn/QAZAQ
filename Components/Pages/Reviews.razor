@@ -1,5 +1,8 @@
 @page "/reviews"
 @rendermode InteractiveServer
+@inject Supabase.Client Db
+@inject ITourismDataService TourismService
+@using static Supabase.Postgrest.Constants
 
 <PageTitle>Reviews - Past Tourists in Kazakhstan</PageTitle>
 
@@ -126,14 +129,21 @@
                             <span class="block text-[10px] text-stone-400">@review.TravelMonth • Verified Guest</span>
                         </div>
 
-                        <button class="flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50/50 px-3 py-1 text-[11px] font-bold text-sky-800 hover:border-sky-400 hover:bg-sky-100 transition-colors"
-                                @onclick="() => VoteHelpful(review)"
-                                title="Vote review as helpful">
-                            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 stroke-sky-700 fill-none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-                            </svg>
-                            <span>@(review.HelpfulVotes)</span>
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button class="flex items-center gap-1.5 rounded-full border border-sky-200 bg-sky-50/50 px-3 py-1 text-[11px] font-bold text-sky-800 hover:border-sky-400 hover:bg-sky-100 transition-colors"
+                                    @onclick="() => VoteHelpful(review)"
+                                    title="Vote review as helpful">
+                                <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 stroke-sky-700 fill-none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                                </svg>
+                                <span>@(review.HelpfulVotes)</span>
+                            </button>
+                            <button class="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-100 transition-colors"
+                                    @onclick="() => DeleteReview(review)"
+                                    title="Soft-delete review">
+                                ✕
+                            </button>
+                        </div>
                     </div>
                 </article>
             }
@@ -183,8 +193,8 @@
                 </div>
 
                 <div class="pt-2">
-                    <button class="btn-gold w-full py-3" @onclick="SubmitNewReview">
-                        Post Verified Review
+                    <button class="btn-gold w-full py-3 disabled:opacity-50" @onclick="SubmitNewReview" disabled="@isSavingReview">
+                        @(isSavingReview ? "Saving to Supabase..." : "Post Verified Review")
                     </button>
                 </div>
             </div>
@@ -196,14 +206,23 @@
     private string searchQuery = "";
     private int ratingFilter = 0;
     private bool showModal = false;
+    private bool isSavingReview;
 
-    private List<TouristReview> reviews = SampleData.Reviews;
+    private List<TouristReview> reviews = new();
 
     private string newReviewAuthor = "";
     private string newReviewCountry = "";
     private string newReviewDestination = "Kaindy Lake Submerged Forest";
     private string newReviewTitle = "";
     private string newReviewComment = "";
+
+    protected override async Task OnInitializedAsync()
+        => await Load();
+
+    private async Task Load()
+    {
+        reviews = await TourismService.GetReviewsAsync();
+    }
 
     private IEnumerable<TouristReview> FilteredReviews => reviews.Where(r => 
         (ratingFilter == 0 || r.Rating == ratingFilter) &&
@@ -213,38 +232,55 @@
          r.Country.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
          r.Comment.Contains(searchQuery, StringComparison.OrdinalIgnoreCase)));
 
-    private void VoteHelpful(TouristReview review)
+    private async Task VoteHelpful(TouristReview review)
     {
         if (!review.HasVotedHelpful)
         {
             review.HelpfulVotes++;
             review.HasVotedHelpful = true;
+            await TourismService.VoteReviewHelpfulAsync(review.Id);
         }
     }
 
-    private void SubmitNewReview()
+    private async Task DeleteReview(TouristReview review)
+    {
+        await TourismService.SoftDeleteReviewAsync(review.Id);
+        await Load();
+    }
+
+    private async Task SubmitNewReview()
     {
         if (!string.IsNullOrWhiteSpace(newReviewAuthor) && !string.IsNullOrWhiteSpace(newReviewComment))
         {
-            reviews.Insert(0, new TouristReview
+            isSavingReview = true;
+            try
             {
-                Id = reviews.Count + 1,
-                AuthorName = newReviewAuthor,
-                Country = string.IsNullOrWhiteSpace(newReviewCountry) ? "International Traveler" : newReviewCountry,
-                DestinationName = newReviewDestination,
-                Rating = 5,
-                TravelMonth = DateTime.Now.ToString("MMMM yyyy"),
-                Title = string.IsNullOrWhiteSpace(newReviewTitle) ? "Unforgettable Expedition" : newReviewTitle,
-                Comment = newReviewComment,
-                HelpfulVotes = 1,
-                IsVerifiedGuest = true
-            });
+                var review = new TouristReview
+                {
+                    AuthorName = newReviewAuthor.Trim(),
+                    Country = string.IsNullOrWhiteSpace(newReviewCountry) ? "International Traveler" : newReviewCountry.Trim(),
+                    DestinationName = newReviewDestination,
+                    Rating = 5,
+                    TravelMonth = DateTime.Now.ToString("MMMM yyyy"),
+                    Title = string.IsNullOrWhiteSpace(newReviewTitle) ? "Unforgettable Expedition" : newReviewTitle.Trim(),
+                    Comment = newReviewComment.Trim(),
+                    HelpfulVotes = 1,
+                    IsVerifiedGuest = true
+                };
 
-            newReviewAuthor = "";
-            newReviewCountry = "";
-            newReviewTitle = "";
-            newReviewComment = "";
-            showModal = false;
+                await TourismService.AddReviewAsync(review);
+
+                newReviewAuthor = "";
+                newReviewCountry = "";
+                newReviewTitle = "";
+                newReviewComment = "";
+                showModal = false;
+                await Load();
+            }
+            finally
+            {
+                isSavingReview = false;
+            }
         }
     }
 }

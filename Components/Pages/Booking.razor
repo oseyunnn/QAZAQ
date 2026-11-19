@@ -1,5 +1,8 @@
 @page "/booking"
 @rendermode InteractiveServer
+@inject Supabase.Client Db
+@inject ITourismDataService TourismService
+@using static Supabase.Postgrest.Constants
 
 <PageTitle>Book Our Paradise - Kazakhstan Expeditions</PageTitle>
 
@@ -112,7 +115,7 @@
                         <label for="spot" class="field-label">Select Destination *</label>
                         <select id="spot" class="field" @bind="form.SpotId" @bind:after="OnSpotChanged">
                             <option value="0">-- Select a Kazakh Destination --</option>
-                            @foreach (var spot in SampleData.Spots)
+                            @foreach (var spot in availableSpots)
                             {
                                 <option value="@spot.Id">@spot.Name (@spot.GetFormattedRegion()) - $@spot.BasePriceUsd</option>
                             }
@@ -317,32 +320,90 @@
             </div>
         </div>
     }
+
+    <!-- Saved Reservations in Supabase (Milestone Step 6 & 8) -->
+    <div class="mt-14 border-t border-sky-100 pt-10">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <span class="badge-azure">Cloud Database Records</span>
+                <h2 class="mt-2 font-display text-2xl text-sky-950">Active Expeditions & Reservations</h2>
+                <p class="text-xs text-stone-500">Stored in Supabase table <code class="font-mono text-sky-800">public.bookings</code></p>
+            </div>
+            <button class="btn-outline-dark text-xs py-2 px-4 shrink-0" @onclick="() => showBookingsList = !showBookingsList">
+                @(showBookingsList ? "Hide Reservations" : $"Show Reservations ({recentBookings.Count})")
+            </button>
+        </div>
+
+        @if (showBookingsList)
+        {
+            <div class="mt-6 space-y-3">
+                @if (!recentBookings.Any())
+                {
+                    <div class="rounded-2xl border border-dashed border-sky-200 p-8 text-center text-xs text-stone-500">
+                        No active reservations recorded. Book a journey above to see it appear here!
+                    </div>
+                }
+                else
+                {
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        @foreach (var b in recentBookings)
+                        {
+                            <div class="rounded-2xl border border-sky-100 bg-white p-5 shadow-xs flex flex-col justify-between">
+                                <div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="badge-gold text-[10px]">@b.VoucherCode</span>
+                                        <span class="text-xs font-bold text-sky-900">$@b.TotalPriceUsd</span>
+                                    </div>
+                                    <h3 class="mt-2 font-display text-base font-bold text-sky-950">@b.FullName</h3>
+                                    <p class="text-xs text-stone-500">@b.Email · @b.Phone</p>
+                                    <p class="mt-2 text-xs text-sky-800 font-semibold">@b.TravelDate.ToString("MMMM dd, yyyy") (@b.Travelers travelers)</p>
+                                </div>
+                                <div class="mt-4 border-t border-sky-100 pt-3 flex items-center justify-between">
+                                    <span class="text-[10px] text-stone-400">@b.TripStyle</span>
+                                    <button class="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-bold text-rose-700 hover:bg-rose-100 transition-colors"
+                                            @onclick="() => CancelReservation(b.Id)">
+                                        Cancel (Soft-Delete)
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
 </section>
 
 @code {
     [SupplyParameterFromQuery]
-    public int? SpotId { get; set; }
+    public long? SpotId { get; set; }
 
     private TourBookingForm form = new();
     private bool isSubmitting;
     private bool submitted;
     private string voucherCode = "";
+    private List<TouristSpot> availableSpots = new();
+    private List<TourBooking> recentBookings = new();
+    private bool showBookingsList;
 
-    private TouristSpot? SelectedSpot => SampleData.Spots.FirstOrDefault(s => s.Id == form.SpotId);
+    private TouristSpot? SelectedSpot => availableSpots.FirstOrDefault(s => s.Id == form.SpotId);
 
     private decimal ComputedTotal => SelectedSpot is null 
         ? 0m 
         : form.ComputeEstimate(SelectedSpot.BasePriceUsd, SelectedSpot.DurationDays);
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        if (SpotId.HasValue && SampleData.Spots.Any(s => s.Id == SpotId.Value))
+        availableSpots = await TourismService.GetSpotsAsync();
+        recentBookings = await TourismService.GetBookingsAsync();
+
+        if (SpotId.HasValue && availableSpots.Any(s => s.Id == SpotId.Value))
         {
             form.SpotId = SpotId.Value;
         }
-        else if (form.SpotId == 0 && SampleData.Spots.Any())
+        else if (form.SpotId == 0 && availableSpots.Any())
         {
-            form.SpotId = SampleData.Spots.First().Id;
+            form.SpotId = availableSpots.First().Id;
         }
     }
 
@@ -359,18 +420,51 @@
     private async Task HandleValidSubmit()
     {
         isSubmitting = true;
-        await Task.Delay(850);
-        voucherCode = $"KZ-SUN-{DateTime.Now.Year}-{Random.Shared.Next(1000, 9999)}";
-        isSubmitting = false;
-        submitted = true;
+        try
+        {
+            voucherCode = $"KZ-SUN-{DateTime.Now.Year}-{Random.Shared.Next(1000, 9999)}";
+
+            var bookingRecord = new TourBooking
+            {
+                SpotId = form.SpotId,
+                FullName = form.FullName.Trim(),
+                TripStyle = form.TripStyle,
+                Email = form.Email.Trim(),
+                Phone = form.Phone.Trim(),
+                TravelDate = form.TravelDate ?? DateTime.Today.AddDays(14),
+                Travelers = form.Travelers,
+                IncludeGuide = form.IncludeGuide,
+                IncludeYurtExperience = form.IncludeYurtExperience,
+                SpecialRequests = form.SpecialRequests?.Trim(),
+                TotalPriceUsd = ComputedTotal,
+                VoucherCode = voucherCode,
+                Status = "Confirmed"
+            };
+
+            // Insert into Supabase table public.bookings (Create) via service layer
+            await TourismService.CreateBookingAsync(bookingRecord);
+
+            recentBookings = await TourismService.GetBookingsAsync();
+            submitted = true;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
     }
 
     private void ResetForm()
     {
         form = new()
         {
-            SpotId = SampleData.Spots.FirstOrDefault()?.Id ?? 1
+            SpotId = availableSpots.FirstOrDefault()?.Id ?? 1
         };
         submitted = false;
+    }
+
+    private async Task CancelReservation(long bookingId)
+    {
+        await TourismService.CancelBookingAsync(bookingId);
+        recentBookings = await TourismService.GetBookingsAsync();
     }
 }

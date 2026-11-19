@@ -1,5 +1,6 @@
 @page "/"
 @rendermode InteractiveServer
+@inject ITourismDataService TourismService
 
 <PageTitle>QAZAQ - Kazakhstan Tourism Paradise</PageTitle>
 
@@ -206,7 +207,7 @@
         </div>
 
         <div class="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            @foreach (var spot in SampleData.Spots.Take(3))
+            @foreach (var spot in featuredSpots)
             {
                 <article class="card flex flex-col justify-between group p-5">
                     <div>
@@ -272,3 +273,16 @@
         </div>
     </div>
 </section>
+
+@code {
+    private List<TouristSpot> featuredSpots = SampleData.Spots.Take(3).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var spots = await TourismService.GetSpotsAsync();
+        if (spots != null && spots.Count > 0)
+        {
+            featuredSpots = spots.Where(s => s.DeletedAt == null).Take(3).ToList();
+        }
+    }
+}

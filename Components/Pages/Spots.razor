@@ -1,5 +1,8 @@
 @page "/spots"
 @rendermode InteractiveServer
+@inject Supabase.Client Db
+@inject ITourismDataService TourismService
+@using static Supabase.Postgrest.Constants
 
 <PageTitle>Destinations - Kazakhstan Paradise Explorer</PageTitle>
 
@@ -8,7 +11,23 @@
     <div class="mx-auto max-w-7xl px-6">
         <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div>
-                <span class="badge-azure">Central Asia Portfolio</span>
+                <div class="flex items-center gap-2">
+                    <span class="badge-azure">Central Asia Portfolio</span>
+                    @if (isDbConnected)
+                    {
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200">
+                            <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Live Supabase Database Connected
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-800 border border-amber-200" title="Check .env configuration">
+                            <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                            Local Seed Mode
+                        </span>
+                    }
+                </div>
                 <h1 class="mt-3 font-display text-4xl sm:text-5xl font-normal text-sky-950">
                     Kazakhstan Destinations
                 </h1>
@@ -17,20 +36,29 @@
                 </p>
             </div>
 
-            <!-- Saved Wishlist Pill Counter -->
-            <div class="flex items-center gap-3 rounded-full border border-amber-200 bg-amber-50/90 px-5 py-2.5 shadow-xs">
-                <svg viewBox="0 0 24 24" class="h-4 w-4 fill-amber-500 text-amber-500">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-                <div class="text-xs">
-                    <span class="text-stone-600 font-semibold">Saved Wishlist:</span>
-                    <strong class="ml-1 text-sky-950 font-bold">@savedCount spot@(savedCount == 1 ? "" : "s")</strong>
+            <!-- Header Action Controls: Wishlist & Super Admin Quick Link -->
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- Saved Wishlist Pill Counter -->
+                <div class="flex items-center gap-3 rounded-full border border-amber-200 bg-amber-50/90 px-4 py-2 shadow-xs">
+                    <svg viewBox="0 0 24 24" class="h-4 w-4 fill-amber-500 text-amber-500">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                    <div class="text-xs">
+                        <span class="text-stone-600 font-semibold">Wishlist:</span>
+                        <strong class="ml-1 text-sky-950 font-bold">@savedCount spot@(savedCount == 1 ? "" : "s")</strong>
+                    </div>
                 </div>
+
+                <!-- Admin Link -->
+                <a href="/admin" class="btn-outline-dark text-xs py-2 px-3.5 flex items-center gap-1.5 shadow-xs" title="Super Admin Database Control Center">
+                    <span>Admin Console</span>
+                    <span class="text-[10px] text-amber-600 font-bold">⚙</span>
+                </a>
             </div>
         </div>
 
         <!-- Sleek Floating Filter Bar -->
-        <div class="mt-10 rounded-3xl border border-sky-100 bg-white p-6 shadow-sm">
+        <div class="mt-8 rounded-3xl border border-sky-100 bg-white p-6 shadow-sm">
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <!-- Search -->
                 <div>
@@ -84,7 +112,7 @@
 
             <!-- Secondary Quick Filters -->
             <div class="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-sky-100 pt-4 text-xs text-stone-600">
-                <div class="flex items-center gap-6">
+                <div class="flex flex-wrap items-center gap-6">
                     <label class="flex items-center gap-2 cursor-pointer font-semibold text-stone-700">
                         <input type="checkbox" @bind="unescoOnly" class="h-4 w-4 rounded-md border-sky-200 text-sky-600 focus:ring-sky-500" />
                         <span>UNESCO Sites Only</span>
@@ -103,26 +131,6 @@
                     }
                 </div>
             </div>
-        </div>
-    </div>
-</section>
-
-<section class="mx-auto max-w-7xl px-6 py-10">
-    <div class="grid gap-5 md:grid-cols-3">
-        <div class="card p-5">
-            <span class="badge-azure">Curated stays</span>
-            <h2 class="mt-3 font-display text-2xl text-sky-950">Yurt nights & alpine camps</h2>
-            <p class="mt-2 text-sm leading-relaxed text-stone-600">Stay close to the landscape with traditional hospitality, live music, and warm local meals under the stars.</p>
-        </div>
-        <div class="card p-5">
-            <span class="badge-azure">Local expertise</span>
-            <h2 class="mt-3 font-display text-2xl text-sky-950">Guide-led cultural discovery</h2>
-            <p class="mt-2 text-sm leading-relaxed text-stone-600">Move beyond the postcard views with multilingual guides, heritage stories, and seasonal route planning.</p>
-        </div>
-        <div class="card p-5">
-            <span class="badge-azure">Smooth planning</span>
-            <h2 class="mt-3 font-display text-2xl text-sky-950">Flexible itinerary support</h2>
-            <p class="mt-2 text-sm leading-relaxed text-stone-600">Build multi-day experiences around hiking, photography, archaeology, or a slower, more restorative travel rhythm.</p>
         </div>
     </div>
 </section>
@@ -157,7 +165,7 @@
                                 }
                             </div>
 
-                            <!-- Wishlist Toggle (Inline SVG, No Emojis) -->
+                            <!-- Wishlist Toggle -->
                             <button class="absolute top-3 right-3 h-8 w-8 rounded-full bg-white/95 flex items-center justify-center shadow hover:bg-white transition-colors"
                                     @onclick="() => ToggleSave(spot)"
                                     title="@(spot.IsSaved ? "Remove from wishlist" : "Save to wishlist")"
@@ -211,8 +219,8 @@
                         </div>
                     </div>
 
-                    <!-- Footer & Quick Actions -->
-                    <div class="mt-6 flex items-center justify-between border-t border-sky-100 pt-4">
+                    <!-- Clean Luxury Card Footer (No Clutter, No Dark Line Above Buttons) -->
+                    <div class="mt-6 flex items-center justify-between border-t border-sky-100/70 pt-4">
                         <div>
                             <span class="block text-[10px] uppercase tracking-wider text-stone-500 font-bold">Rates From</span>
                             <span class="text-xl font-display font-bold text-sky-950">$@spot.BasePriceUsd <span class="text-xs font-sans font-normal text-stone-500">/ person</span></span>
@@ -232,7 +240,7 @@
     }
 </section>
 
-<!-- Quick View & Dynamic OOP Pricing Calculator Modal -->
+<!-- Quick View & OOP Pricing Calculator Modal -->
 @if (activeModalSpot is not null)
 {
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md"
@@ -240,7 +248,7 @@
         <div class="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-sky-100 bg-white p-6 sm:p-8 shadow-2xl"
              @onclick:stopPropagation="true">
             
-            <button class="absolute top-5 right-5 flex h-9 w-9 items-center justify-center rounded-full border border-sky-200 text-stone-400 hover:text-sky-950 hover:border-sky-500 transition-colors" 
+            <button class="absolute top-5 right-5 flex h-9 w-9 items-center justify-center rounded-full border border-sky-200 text-stone-400 hover:text-sky-950 transition-colors" 
                     @onclick="CloseModal" aria-label="Close modal">✕</button>
 
             <div class="border-b border-sky-100 pb-4 pr-10">
@@ -264,23 +272,26 @@
             </div>
 
             <!-- Expedition Highlights -->
-            <div class="mt-5 border-t border-sky-100 pt-4">
-                <h4 class="text-[11px] font-bold uppercase tracking-wider text-sky-800">Tour Highlights</h4>
-                <ul class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-sky-950">
-                    @foreach (var highlight in activeModalSpot.Highlights)
-                    {
-                        <li class="flex items-center gap-2 rounded-xl bg-sky-50/70 p-2.5">
-                            <span class="text-amber-500 font-bold">✦</span>
-                            <span>@highlight</span>
-                        </li>
-                    }
-                </ul>
-            </div>
+            @if (activeModalSpot.Highlights != null && activeModalSpot.Highlights.Any())
+            {
+                <div class="mt-5 border-t border-sky-100 pt-4">
+                    <h4 class="text-[11px] font-bold uppercase tracking-wider text-sky-800">Tour Highlights</h4>
+                    <ul class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-sky-950">
+                        @foreach (var highlight in activeModalSpot.Highlights)
+                        {
+                            <li class="flex items-center gap-2 rounded-xl bg-sky-50/70 p-2.5">
+                                <span class="text-amber-500 font-bold">✦</span>
+                                <span>@highlight</span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
 
             <!-- OOP Polymorphic Price Calculator Widget -->
             <div class="mt-6 rounded-2xl border border-sky-200 bg-sky-50/50 p-5">
                 <div class="flex items-center justify-between">
-                    <h4 class="text-xs font-bold uppercase tracking-wider text-sky-950">Package Estimator (OOP Polymorphic Method)</h4>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-sky-950">Package Estimator (Polymorphic Method)</h4>
                     <span class="text-xs text-stone-500">Best Season: @activeModalSpot.BestSeason</span>
                 </div>
 
@@ -333,10 +344,11 @@
     private bool unescoOnly;
     private bool wishlistOnly;
 
-    private List<TouristSpot> spots = SampleData.Spots;
+    private List<TouristSpot> spots = new();
     private TouristSpot? activeModalSpot;
     private int modalTravelers = 2;
     private bool modalIncludeGuide = true;
+    private bool isDbConnected;
 
     private int savedCount => spots.Count(s => s.IsSaved);
 
@@ -346,6 +358,38 @@
         !string.IsNullOrEmpty(selectedCategory) ||
         unescoOnly ||
         wishlistOnly;
+
+    // Step 6: Read / Show rows from Supabase (Slide 49)
+    // Habit 2: Filter in the database before fetch (.Where before .Get)
+    protected override async Task OnInitializedAsync()
+        => await Load();
+
+    private async Task Load()
+    {
+        try
+        {
+            // Habit 2 (Slide 19, 49): Filter in database before fetch, order by ID, range first 50
+            var res = await Db.From<TouristSpot>()
+                .Where(p => p.DeletedAt == null)
+                .Order(p => p.Id, Ordering.Ascending)
+                .Range(0, 49)
+                .Get();
+
+            if (res.Models != null && res.Models.Count > 0)
+            {
+                spots = res.Models;
+                isDbConnected = true;
+                return;
+            }
+        }
+        catch
+        {
+            isDbConnected = false;
+        }
+
+        spots = await TourismService.GetSpotsAsync();
+        isDbConnected = TourismService.IsConnectedToSupabase;
+    }
 
     private IEnumerable<TouristSpot> FilteredSpots
     {
@@ -394,10 +438,7 @@
         }
     }
 
-    private void ToggleSave(TouristSpot spot)
-    {
-        spot.IsSaved = !spot.IsSaved;
-    }
+    private void ToggleSave(TouristSpot spot) => spot.IsSaved = !spot.IsSaved;
 
     private void OpenModal(TouristSpot spot)
     {
@@ -406,10 +447,7 @@
         modalIncludeGuide = true;
     }
 
-    private void CloseModal()
-    {
-        activeModalSpot = null;
-    }
+    private void CloseModal() => activeModalSpot = null;
 
     private void ResetFilters()
     {
@@ -428,6 +466,8 @@
         Region.Turkistan => "Turkistan",
         Region.AstanaCapital => "Astana Capital",
         Region.EastKazakhstan => "East Kazakhstan",
+        Region.BalkhashRegion => "Balkhash Region",
+        Region.WesternKazakhstan => "Western Kazakhstan",
         _ => region.ToString()
     };
 }
